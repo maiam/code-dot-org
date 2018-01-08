@@ -89,26 +89,24 @@ const styles = {
   }
 };
 
-const ProjectCard = React.createClass({
-  propTypes: {
+export default class ProjectCard extends React.Component {
+  static propTypes = {
     projectData: PropTypes.object.isRequired,
     currentGallery: PropTypes.string.isRequired,
     hideActions: PropTypes.bool
-  },
+  };
 
-  getInitialState() {
-   return {actionsOpen: false};
-  },
+  state = { actionsOpen: false };
 
   dateFormatter(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString();
-  },
+  }
 
   timeFormatter(dateString) {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-  },
+  }
 
   renderStudentName() {
   // The student's name should only be visible in the classroom gallery.
@@ -120,7 +118,7 @@ const ProjectCard = React.createClass({
         </div>
       );
     }
-  },
+  }
 
   renderFirstInitial() {
     if (this.props.currentGallery === 'public'){
@@ -131,9 +129,9 @@ const ProjectCard = React.createClass({
           {i18n.by()}:
           <span style={styles.bold} > {this.props.projectData.studentName}</span>
         </span>
-        );
+      );
     }
-  },
+  }
 
   renderStudentAgeRange(studentAgeRange) {
   // The student's age range should only be visible in the public gallery.
@@ -145,7 +143,7 @@ const ProjectCard = React.createClass({
         </span>
       );
     }
-  },
+  }
 
   renderArrowIcon() {
     if (!this.props.hideActions) {
@@ -155,11 +153,11 @@ const ProjectCard = React.createClass({
         <FontAwesome icon={icon} style={styles.arrowIcon} onClick={this.toggleActionBox}/>
       );
     }
-  },
+  }
 
-  toggleActionBox() {
+  toggleActionBox = () => {
     this.setState({actionsOpen: !this.state.actionsOpen});
-  },
+  }
 
   renderProjectName(url, name) {
     return (
@@ -171,14 +169,14 @@ const ProjectCard = React.createClass({
         <div style={styles.title}>{name}</div>
       </a>
     );
-  },
+  }
 
-  getLastModifiedTimestamp: function (timestamp) {
+  getLastModifiedTimestamp(timestamp) {
     if (timestamp.toLocaleString) {
       return timestamp.toLocaleString();
     }
     return timestamp.toString();
-  },
+  }
 
   render() {
     const { projectData, currentGallery } = this.props;
@@ -240,13 +238,11 @@ const ProjectCard = React.createClass({
 
       </div>
     );
-  },
+  }
 
-  componentDidMount: function () {
+  componentDidMount() {
     if ($('.versionTimestamp').timeago) {
       $('.versionTimestamp').timeago();
     }
   }
-});
-
-export default ProjectCard;
+}
