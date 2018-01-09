@@ -335,18 +335,18 @@ end
 # ]
 #
 def browser_features
-  $browsers.map do |browser|
-    arguments = cucumber_arguments_for_browser(browser, $options)
-    scenario_count = ParallelTests::Cucumber::Scenarios.all(features_to_run, test_options: arguments).length
-    next if scenario_count.zero?
-    [browser, features_to_run]
-  end.compact
-  #($browsers.product features_to_run).map do |browser, feature|
+  #$browsers.map do |browser|
   #  arguments = cucumber_arguments_for_browser(browser, $options)
-  #  scenario_count = ParallelTests::Cucumber::Scenarios.all([feature], test_options: arguments).length
+  #  scenario_count = ParallelTests::Cucumber::Scenarios.all(features_to_run, test_options: arguments).length
   #  next if scenario_count.zero?
-  #  [browser, feature]
+  #  [browser, features_to_run]
   #end.compact
+  ($browsers.product features_to_run.each_slice(5).to_a).map do |browser, features|
+    arguments = cucumber_arguments_for_browser(browser, $options)
+    scenario_count = ParallelTests::Cucumber::Scenarios.all(features, test_options: arguments).length
+    next if scenario_count.zero?
+    [browser, features]
+  end.compact
 end
 
 def test_type
@@ -443,8 +443,8 @@ def generate_status_page(suite_start_time)
   ChatClient.log "A <a href=\"#{status_page_url}\">status page</a> has been generated for this #{test_type} test run."
 end
 
-def test_run_identifier(browser, feature)
-  feature_name = feature.gsub('features/', '').gsub('.feature', '').tr('/', '_')
+def test_run_identifier(browser, features)
+  feature_name = features.join('-').gsub('features/', '').gsub('.feature', '').tr('/', '_')
   browser_name = browser_name_or_unknown(browser)
   "#{browser_name}_#{feature_name}" + (eyes? ? '_eyes' : '')
 end
@@ -625,8 +625,8 @@ end
 
 def run_feature(browser, features, options)
   browser_name = browser_name_or_unknown(browser)
-  test_run_string = test_run_identifier(browser, features.first)
-  log_prefix = "[#{features.first.gsub(/.*features\//, '').gsub('.feature', '')}] "
+  test_run_string = test_run_identifier(browser, features)
+  log_prefix = "[#{features.join('-').gsub(/.*features\//, '').gsub('.feature', '')}] "
 
   if options.pegasus_domain =~ /test/ && rack_env?(:development) && RakeUtils.git_updates_available?
     message = "Killing <b>dashboard</b> UI tests (changes detected)"
@@ -755,7 +755,7 @@ def run_feature(browser, features, options)
     ChatClient.log output_synopsis(output_stdout, log_prefix), {wrap_with_tag: 'pre'} if options.output_synopsis
     ChatClient.log prefix_string(output_stderr, log_prefix), {wrap_with_tag: 'pre'}
     message = "#{log_prefix}<b>dashboard</b> UI tests failed with <b>#{test_run_string}</b> (#{RakeUtils.format_duration(test_duration)}#{scenario_info}#{rerun_info}#{eyes_info})#{log_link}"
-    message += "<br/>rerun:<br/>bundle exec ./runner.rb --html#{' --eyes' if eyes?} -c #{browser_name} -f #{features.first}"
+    message += "<br/>rerun:<br/>bundle exec ./runner.rb --html#{' --eyes' if eyes?} -c #{browser_name} -f #{features.join(',')}"
     ChatClient.log message, color: 'red'
   end
   result_string =
