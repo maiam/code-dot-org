@@ -611,6 +611,7 @@ def cucumber_arguments_for_feature(options, test_run_string, max_reruns)
   # if autorertrying, output a rerun file so on retry we only run failed tests
   if max_reruns > 0
     arguments += " --format rerun --out #{rerun_filename test_run_string}"
+    arguments += " --retry #{max_reruns}"
   end
 
   # In CircleCI we export additional logs in junit xml format so CircleCI can
