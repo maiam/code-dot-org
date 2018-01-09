@@ -62,8 +62,8 @@ def main(options)
   report_tests_starting
   generate_status_page(start_time) if options.with_status_page
 
-  run_results = Parallel.map(browser_feature_generator, parallel_config(options.parallel_limit)) do |browser, feature|
-    run_feature browser, feature, options
+  run_results = Parallel.map(browser_feature_generator, parallel_config(options.parallel_limit)) do |browser, features|
+    run_feature browser, features, options
   end
 
   # Produce a final report if we aborted due to excess failures
@@ -303,9 +303,9 @@ def log_browser_error(msg)
   puts msg if $options.verbose
 end
 
-def run_tests(env, feature, arguments, log_prefix)
+def run_tests(env, features, arguments, log_prefix)
   start_time = Time.now
-  cmd = "cucumber #{feature} #{arguments}"
+  cmd = "cucumber #{features.join(' ')} #{arguments}"
   puts "#{log_prefix}#{cmd}"
   Open3.popen3(env, cmd) do |stdin, stdout, stderr, wait_thr|
     stdin.close
@@ -335,12 +335,18 @@ end
 # ]
 #
 def browser_features
-  ($browsers.product features_to_run).map do |browser, feature|
+  $browsers.map do |browser|
     arguments = cucumber_arguments_for_browser(browser, $options)
-    scenario_count = ParallelTests::Cucumber::Scenarios.all([feature], test_options: arguments).length
+    scenario_count = ParallelTests::Cucumber::Scenarios.all(features_to_run, test_options: arguments).length
     next if scenario_count.zero?
-    [browser, feature]
+    [browser, features_to_run]
   end.compact
+  #($browsers.product features_to_run).map do |browser, feature|
+  #  arguments = cucumber_arguments_for_browser(browser, $options)
+  #  scenario_count = ParallelTests::Cucumber::Scenarios.all([feature], test_options: arguments).length
+  #  next if scenario_count.zero?
+  #  [browser, feature]
+  #end.compact
 end
 
 def test_type
@@ -617,10 +623,10 @@ def cucumber_arguments_for_feature(options, test_run_string, max_reruns)
   arguments
 end
 
-def run_feature(browser, feature, options)
+def run_feature(browser, features, options)
   browser_name = browser_name_or_unknown(browser)
-  test_run_string = test_run_identifier(browser, feature)
-  log_prefix = "[#{feature.gsub(/.*features\//, '').gsub('.feature', '')}] "
+  test_run_string = test_run_identifier(browser, features.first)
+  log_prefix = "[#{features.first.gsub(/.*features\//, '').gsub('.feature', '')}] "
 
   if options.pegasus_domain =~ /test/ && rack_env?(:development) && RakeUtils.git_updates_available?
     message = "Killing <b>dashboard</b> UI tests (changes detected)"
@@ -674,7 +680,7 @@ def run_feature(browser, feature, options)
   reruns = 0
   arguments = cucumber_arguments_for_browser(browser, options)
   arguments += cucumber_arguments_for_feature(options, test_run_string, max_reruns)
-  cucumber_succeeded, eyes_succeeded, output_stdout, output_stderr, test_duration = run_tests(run_environment, feature, arguments, log_prefix)
+  cucumber_succeeded, eyes_succeeded, output_stdout, output_stderr, test_duration = run_tests(run_environment, features, arguments, log_prefix)
   feature_succeeded = cucumber_succeeded && eyes_succeeded
   log_link = upload_log_and_get_public_link(
     html_log,
@@ -697,7 +703,7 @@ def run_feature(browser, feature, options)
 
     rerun_arguments = File.exist?(rerun_file) ? " @#{rerun_file}" : ''
 
-    cucumber_succeeded, eyes_succeeded, output_stdout, output_stderr, test_duration = run_tests(run_environment, feature, arguments + rerun_arguments, log_prefix)
+    cucumber_succeeded, eyes_succeeded, output_stdout, output_stderr, test_duration = run_tests(run_environment, features, arguments + rerun_arguments, log_prefix)
     feature_succeeded = cucumber_succeeded && eyes_succeeded
     log_link = upload_log_and_get_public_link(
       html_log,
@@ -749,7 +755,7 @@ def run_feature(browser, feature, options)
     ChatClient.log output_synopsis(output_stdout, log_prefix), {wrap_with_tag: 'pre'} if options.output_synopsis
     ChatClient.log prefix_string(output_stderr, log_prefix), {wrap_with_tag: 'pre'}
     message = "#{log_prefix}<b>dashboard</b> UI tests failed with <b>#{test_run_string}</b> (#{RakeUtils.format_duration(test_duration)}#{scenario_info}#{rerun_info}#{eyes_info})#{log_link}"
-    message += "<br/>rerun:<br/>bundle exec ./runner.rb --html#{' --eyes' if eyes?} -c #{browser_name} -f #{feature}"
+    message += "<br/>rerun:<br/>bundle exec ./runner.rb --html#{' --eyes' if eyes?} -c #{browser_name} -f #{features.first}"
     ChatClient.log message, color: 'red'
   end
   result_string =
@@ -765,7 +771,7 @@ def run_feature(browser, feature, options)
   if scenario_count == 0 && !ENV['CI']
     skip_warning = "We didn't actually run any tests, did you mean to do this?\n".yellow
     skip_warning += <<EOS
-Check the ~excluded @tags in the cucumber command line above and in the #{feature} file:
+Check the ~excluded @tags in the cucumber command line above and in the #{features.first} file:
   - Do the feature or scenario tags exclude #{browser_name}?
 EOS
     unless eyes?
